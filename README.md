@@ -24,26 +24,7 @@ venv\Scripts\activate  # для Windows
 pip install -r requirements.txt
 ```
 
-4. Установите и настройте PostgreSQL:
-
-**Вариант А: Установка PostgreSQL сервера локально**
-```bash
-# Установка PostgreSQL сервера
-sudo apt install -y postgresql postgresql-contrib
-
-# Запуск сервиса
-sudo systemctl start postgresql
-sudo systemctl enable postgresql
-
-# Создание базы данных (от имени пользователя postgres)
-sudo -u postgres createdb student_grades
-
-# Или создайте пользователя и базу данных:
-sudo -u postgres psql -c "CREATE USER your_user WITH PASSWORD 'your_password';"
-sudo -u postgres psql -c "CREATE DATABASE student_grades OWNER your_user;"
-```
-
-**Вариант Б: Использование Docker (рекомендуется для разработки)**
+4. Установите и настройте PostgreSQL через docker:
 ```bash
 # Запуск PostgreSQL через docker-compose
 sudo docker-compose up -d
@@ -62,7 +43,7 @@ sudo docker ps
 sudo docker-compose down
 ```
 
-**Вариант В: Подключение к удаленному серверу**
+**Вариант Б: Подключение к удаленному серверу**
 Просто настройте переменные окружения в `.env` файле с параметрами удаленного сервера.
 
 5. Создайте базу данных (если еще не создана):
@@ -85,12 +66,9 @@ cp .env.example .env
 - `MAX_ROWS` - максимальное количество строк (по умолчанию: 100000)
 - `FULL_NAME_MIN_LENGTH` - минимальная длина ФИО (по умолчанию: 2)
 - `FULL_NAME_MAX_LENGTH` - максимальная длина ФИО (по умолчанию: 255)
-- `SUBJECT_MIN_LENGTH` - минимальная длина названия предмета (по умолчанию: 2)
-- `SUBJECT_MAX_LENGTH` - максимальная длина названия предмета (по умолчанию: 255)
 - `VALID_GRADES` - допустимые оценки через запятую (по умолчанию: 2,3,4,5)
 - `BATCH_SIZE` - размер батча для вставки в БД (по умолчанию: 1000)
 - `CSV_FIELD_FULL_NAME` - название поля ФИО в CSV (по умолчанию: full_name)
-- `CSV_FIELD_SUBJECT` - название поля предмета в CSV (по умолчанию: subject)
 - `CSV_FIELD_GRADE` - название поля оценки в CSV (по умолчанию: grade)
 
 7. Примените миграции базы данных:
@@ -137,24 +115,15 @@ python scripts/upload_csv.py path/to/your/file.csv
 - Максимальный размер файла: 10 МБ
 - Максимальное количество строк: 100,000
 - **Обязательные поля:** `full_name`, `grade`
-- **Опциональное поле:** `subject` (если указано, валидируется)
 - ФИО: не пустое, минимум 2 символа, максимум 255 символов
-- Предмет (если указан): минимум 2 символа, максимум 255 символов
 - Оценка: целое число от 2 до 5
 
-**Формат CSV (минимальный):**
+**Формат CSV:**
 ```csv
 full_name,grade
 Иванов Иван Иванович,5
 Петров Пётр Петрович,2
 Сидоров Сидор Сидорович,4
-```
-
-**Формат CSV (с опциональным полем subject):**
-```csv
-full_name,subject,grade
-Иванов Иван Иванович,Математика,5
-Петров Пётр Петрович,Физика,2
 ```
 
 **Ответ при успехе:**

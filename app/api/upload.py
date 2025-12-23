@@ -17,16 +17,6 @@ def validate_full_name(name: str) -> tuple[bool, str]:
         return False, f"ФИО должно содержать минимум {validation_config.FULL_NAME_MIN_LENGTH} символа"
     return True, ""
 
-def validate_subject(subject: str) -> tuple[bool, str]:
-    """Валидация названия предмета"""
-    if not subject or len(subject.strip()) == 0:
-        return False, "Название предмета не может быть пустым"
-    if len(subject) > validation_config.SUBJECT_MAX_LENGTH:
-        return False, f"Название предмета не может быть длиннее {validation_config.SUBJECT_MAX_LENGTH} символов"
-    if len(subject.strip()) < validation_config.SUBJECT_MIN_LENGTH:
-        return False, f"Название предмета должно содержать минимум {validation_config.SUBJECT_MIN_LENGTH} символа"
-    return True, ""
-
 def validate_grade(grade_str: str) -> tuple[bool, str, int]:
     """Валидация оценки"""
     if not grade_str or len(grade_str.strip()) == 0:
@@ -45,7 +35,7 @@ def validate_grade(grade_str: str) -> tuple[bool, str, int]:
 async def upload_grades(file: UploadFile = File(...)):
     """
     Загрузка CSV-файла с успеваемостью студентов.
-    Ожидаемый формат CSV: {CSV_FIELD_FULL_NAME},{CSV_FIELD_GRADE} (поле {CSV_FIELD_SUBJECT} опционально)
+    Ожидаемый формат CSV: {CSV_FIELD_FULL_NAME},{CSV_FIELD_GRADE}
     
     Валидация (параметры настраиваются через .env или app/config.py):
     - Файл должен быть в формате CSV
@@ -53,19 +43,15 @@ async def upload_grades(file: UploadFile = File(...)):
     - Максимальное количество строк: {MAX_ROWS}
     - Обязательные поля: {CSV_FIELDS}
     - ФИО ({CSV_FIELD_FULL_NAME}): не пустое, минимум {FULL_NAME_MIN_LENGTH} символа, максимум {FULL_NAME_MAX_LENGTH} символов
-    - Предмет ({CSV_FIELD_SUBJECT}): опциональное поле, если указано - минимум {SUBJECT_MIN_LENGTH} символа, максимум {SUBJECT_MAX_LENGTH} символов
     - Оценка ({CSV_FIELD_GRADE}): целое число из списка {VALID_GRADES}
     """.format(
         CSV_FIELD_FULL_NAME=validation_config.CSV_FIELD_FULL_NAME,
-        CSV_FIELD_SUBJECT=validation_config.CSV_FIELD_SUBJECT,
         CSV_FIELD_GRADE=validation_config.CSV_FIELD_GRADE,
         CSV_FIELDS=", ".join(sorted(validation_config.get_required_fields())),
         MAX_FILE_SIZE_MB=validation_config.MAX_FILE_SIZE_MB,
         MAX_ROWS=validation_config.MAX_ROWS,
         FULL_NAME_MIN_LENGTH=validation_config.FULL_NAME_MIN_LENGTH,
         FULL_NAME_MAX_LENGTH=validation_config.FULL_NAME_MAX_LENGTH,
-        SUBJECT_MIN_LENGTH=validation_config.SUBJECT_MIN_LENGTH,
-        SUBJECT_MAX_LENGTH=validation_config.SUBJECT_MAX_LENGTH,
         VALID_GRADES=", ".join(map(str, validation_config.VALID_GRADES))
     )
     # Проверка расширения файла
@@ -103,7 +89,6 @@ async def upload_grades(file: UploadFile = File(...)):
         csv_reader = csv.DictReader(io.StringIO(csv_content))
         
         # Валидация заголовков (используем названия полей из конфигурации)
-        # subject - опциональное поле, поэтому проверяем только обязательные
         expected_headers = validation_config.get_required_fields()
         csv_fieldnames = set(csv_reader.fieldnames or [])
         
@@ -137,8 +122,6 @@ async def upload_grades(file: UploadFile = File(...)):
                 try:
                     # Получение значений из строки (используем названия полей из конфигурации)
                     full_name_raw = row.get(validation_config.CSV_FIELD_FULL_NAME, '').strip()
-                    # subject - опциональное поле
-                    subject_raw = row.get(validation_config.CSV_FIELD_SUBJECT, '').strip() if validation_config.CSV_FIELD_SUBJECT in row else None
                     grade_str_raw = row.get(validation_config.CSV_FIELD_GRADE, '').strip()
                     
                     # Валидация ФИО
@@ -148,30 +131,21 @@ async def upload_grades(file: UploadFile = File(...)):
                         continue
                     full_name = full_name_raw
                     
-                    # Валидация предмета (опциональное поле)
-                    subject = None
-                    if subject_raw:
-                        is_valid_subject, subject_error = validate_subject(subject_raw)
-                        if not is_valid_subject:
-                            errors.append(f"Строка {row_num}: {subject_error}")
-                            continue
-                        subject = subject_raw
-                    
                     # Валидация оценки
                     is_valid_grade, grade_error, grade = validate_grade(grade_str_raw)
                     if not is_valid_grade:
                         errors.append(f"Строка {row_num}: {grade_error}")
                         continue
                     
-                    # Добавляем в batch (subject может быть None)
-                    batch_data.append((full_name, subject, grade))
+                    # Добавляем в batch
+                    batch_data.append((full_name, grade))
                     students_set.add(full_name)
                     
                     # Выполняем batch insert при достижении размера батча
                     if len(batch_data) >= validation_config.BATCH_SIZE:
                         cursor.executemany("""
-                            INSERT INTO grades (full_name, subject, grade)
-                            VALUES (%s, %s, %s)
+                            INSERT INTO grades (full_name, grade)
+                            VALUES (%s, %s)
                         """, batch_data)
                         records_loaded += len(batch_data)
                         batch_data = []
@@ -186,8 +160,8 @@ async def upload_grades(file: UploadFile = File(...)):
             # Вставляем оставшиеся данные
             if batch_data:
                 cursor.executemany("""
-                    INSERT INTO grades (full_name, subject, grade)
-                    VALUES (%s, %s, %s)
+                    INSERT INTO grades (full_name, grade)
+                    VALUES (%s, %s)
                 """, batch_data)
                 records_loaded += len(batch_data)
             
