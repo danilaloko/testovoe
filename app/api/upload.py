@@ -86,7 +86,7 @@ async def upload_grades(file: UploadFile = File(...)):
                 detail=f"Файл должен быть в кодировке {encodings_str}"
             )
         
-        csv_reader = csv.DictReader(io.StringIO(csv_content))
+        csv_reader = csv.DictReader(io.StringIO(csv_content), delimiter=';')
         
         # Валидация заголовков (используем названия полей из конфигурации)
         expected_headers = validation_config.get_required_fields()
