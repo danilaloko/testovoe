@@ -3,9 +3,9 @@ services:
     image: postgres:16
     container_name: postgres-student-grades
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: student_grades
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-student_grades}
     ports:
       - "5432:5432"
     volumes:
@@ -27,13 +27,18 @@ services:
       - "8000:8000"
     environment:
       - DB_HOST=postgres
-      - DB_PORT=5432
-      - DB_NAME=student_grades
-      - DB_USER=postgres
-      - DB_PASSWORD=postgres
-      - MAX_FILE_SIZE_MB=10
-      - MAX_ROWS=100000
-      - BATCH_SIZE=1000
+      - DB_PORT=${DB_PORT:-5432}
+      - DB_NAME=${DB_NAME:-student_grades}
+      - DB_USER=${DB_USER:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD:-postgres}
+      - MAX_FILE_SIZE_MB=${MAX_FILE_SIZE_MB:-10}
+      - MAX_ROWS=${MAX_ROWS:-100000}
+      - BATCH_SIZE=${BATCH_SIZE:-1000}
+      - FULL_NAME_MIN_LENGTH=${FULL_NAME_MIN_LENGTH:-2}
+      - FULL_NAME_MAX_LENGTH=${FULL_NAME_MAX_LENGTH:-255}
+      - VALID_GRADES=${VALID_GRADES:-2,3,4,5}
+      - CSV_FIELD_FULL_NAME=${CSV_FIELD_FULL_NAME:-full_name}
+      - CSV_FIELD_GRADE=${CSV_FIELD_GRADE:-grade}
     depends_on:
       postgres:
         condition: service_healthy
