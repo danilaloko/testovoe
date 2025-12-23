@@ -4,7 +4,6 @@
 CREATE TABLE IF NOT EXISTS grades (
     id SERIAL PRIMARY KEY,
     full_name VARCHAR(255) NOT NULL,
-    subject VARCHAR(255) NOT NULL,
     grade INTEGER NOT NULL CHECK (grade IN (2, 3, 4, 5)),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

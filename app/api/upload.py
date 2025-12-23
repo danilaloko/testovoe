@@ -2,9 +2,11 @@ from fastapi import APIRouter, UploadFile, File, HTTPException
 from fastapi.responses import JSONResponse
 import csv
 import io
+import logging
 from app.db.connection import get_db_connection, return_db_connection
 from app.config import validation_config
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 def validate_full_name(name: str) -> tuple[bool, str]:
@@ -86,7 +88,19 @@ async def upload_grades(file: UploadFile = File(...)):
                 detail=f"Файл должен быть в кодировке {encodings_str}"
             )
         
-        csv_reader = csv.DictReader(io.StringIO(csv_content), delimiter=';')
+        # Автоопределение разделителя CSV
+        sniffer = csv.Sniffer()
+        sample = csv_content[:1024]  # Берем первые 1024 символа для анализа
+        try:
+            dialect = sniffer.sniff(sample, delimiters=',;\t')
+            delimiter = dialect.delimiter
+            logger.info(f"Определен разделитель CSV: '{delimiter}'")
+        except csv.Error:
+            # Если не удалось определить, используем запятую по умолчанию
+            delimiter = ','
+            logger.warning(f"Не удалось автоматически определить разделитель, используется запятая")
+        
+        csv_reader = csv.DictReader(io.StringIO(csv_content), delimiter=delimiter)
         
         # Валидация заголовков (используем названия полей из конфигурации)
         expected_headers = validation_config.get_required_fields()
@@ -167,6 +181,8 @@ async def upload_grades(file: UploadFile = File(...)):
             
             conn.commit()
             
+            logger.info(f"Загружено записей: {records_loaded}, уникальных студентов: {len(students_set)}")
+            
             # Если не удалось загрузить ни одной записи
             if records_loaded == 0:
                 error_message = "Не удалось загрузить данные"
@@ -175,6 +191,7 @@ async def upload_grades(file: UploadFile = File(...)):
                     if len(errors) > 10:
                         error_details += f" (и еще {len(errors) - 10} ошибок)"
                     error_message += f". Ошибки: {error_details}"
+                logger.error(f"Загрузка CSV не удалась: {error_message}")
                 raise HTTPException(status_code=400, detail=error_message)
             
             response = {
@@ -187,6 +204,10 @@ async def upload_grades(file: UploadFile = File(...)):
                 response["warnings"] = f"Обнаружено {len(errors)} ошибок при обработке"
                 if len(errors) <= 20:
                     response["error_details"] = errors[:20]
+                logger.warning(f"Загрузка завершена с {len(errors)} ошибками")
+                logger.warning(f"CSV загружен с предупреждениями: {len(errors)} ошибок")
+            else:
+                logger.info(f"CSV успешно загружен: {records_loaded} записей, {len(students_set)} студентов")
             
             return JSONResponse(content=response)
             

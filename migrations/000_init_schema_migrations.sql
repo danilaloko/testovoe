@@ -6,3 +6,4 @@ CREATE TABLE IF NOT EXISTS schema_migrations (
     description TEXT
 );
 
+

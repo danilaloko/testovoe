@@ -3,8 +3,11 @@
 Применяет SQL-скрипты из папки migrations/ в порядке их версий.
 """
 import os
+import logging
 from pathlib import Path
 from app.db.connection import get_db_connection, return_db_connection
+
+logger = logging.getLogger(__name__)
 
 # Путь к папке с миграциями
 MIGRATIONS_DIR = Path(__file__).parent.parent.parent / "migrations"
@@ -23,7 +26,7 @@ def init_schema_migrations():
             conn.commit()
     except Exception as e:
         conn.rollback()
-        print(f"Ошибка при инициализации таблицы миграций: {e}")
+        logger.error(f"Ошибка при инициализации таблицы миграций: {e}")
         raise
     finally:
         cursor.close()
@@ -80,11 +83,11 @@ def apply_migration(version: str, file_path: Path):
         """, (version, f"Migration from {file_path.name}"))
         
         conn.commit()
-        print(f"✓ Применена миграция: {version}")
+        logger.info(f"✓ Применена миграция: {version}")
         return True
     except Exception as e:
         conn.rollback()
-        print(f"✗ Ошибка при применении миграции {version}: {e}")
+        logger.error(f"✗ Ошибка при применении миграции {version}: {e}")
         raise
     finally:
         cursor.close()
@@ -93,39 +96,39 @@ def apply_migration(version: str, file_path: Path):
 
 def run_migrations():
     """Применить все непримененные миграции"""
-    print("Запуск системы миграций...")
+    logger.info("Запуск системы миграций...")
     
     # Инициализируем таблицу миграций
     try:
         init_schema_migrations()
     except Exception as e:
-        print(f"Предупреждение: {e}")
+        logger.warning(f"Предупреждение: {e}")
     
     # Получаем список примененных миграций
     applied_migrations = get_applied_migrations()
-    print(f"Примененных миграций: {len(applied_migrations)}")
+    logger.info(f"Примененных миграций: {len(applied_migrations)}")
     
     # Получаем список файлов миграций
     migration_files = get_migration_files()
     
     if not migration_files:
-        print("Миграции не найдены")
+        logger.warning("Миграции не найдены")
         return
     
     # Применяем новые миграции
     applied_count = 0
     for version, file_path in migration_files:
         if version not in applied_migrations:
-            print(f"Применение миграции {version}...")
+            logger.info(f"Применение миграции {version}...")
             apply_migration(version, file_path)
             applied_count += 1
         else:
-            print(f"⊘ Миграция {version} уже применена, пропускаем")
+            logger.info(f"⊘ Миграция {version} уже применена, пропускаем")
     
     if applied_count == 0:
-        print("Все миграции уже применены")
+        logger.info("Все миграции уже применены")
     else:
-        print(f"\nПрименено новых миграций: {applied_count}")
+        logger.info(f"Применено новых миграций: {applied_count}")
 
 
 def get_migration_status():

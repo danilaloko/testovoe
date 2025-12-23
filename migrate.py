@@ -40,3 +40,4 @@ if __name__ == "__main__":
     finally:
         close_db_pool()
 
+

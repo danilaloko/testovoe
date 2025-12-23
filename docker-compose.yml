@@ -15,7 +15,36 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - app-network
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: student-grades-app
+    ports:
+      - "8000:8000"
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=student_grades
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - MAX_FILE_SIZE_MB=10
+      - MAX_ROWS=100000
+      - BATCH_SIZE=1000
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - app-network
+    restart: unless-stopped
 
 volumes:
   postgres_data:
+
+networks:
+  app-network:
+    driver: bridge
 

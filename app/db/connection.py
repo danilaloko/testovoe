@@ -1,9 +1,12 @@
 import psycopg2
 from psycopg2 import pool
 import os
+import logging
 from dotenv import load_dotenv
 
 load_dotenv()
+
+logger = logging.getLogger(__name__)
 
 # Параметры подключения к БД
 DB_CONFIG = {
@@ -20,14 +23,30 @@ connection_pool = None
 def init_db_pool():
     """Инициализация пула соединений с БД"""
     global connection_pool
-    try:
-        connection_pool = psycopg2.pool.SimpleConnectionPool(
-            1, 20, **DB_CONFIG
-        )
-        if connection_pool:
-            print("Пул соединений с БД успешно создан")
-    except (Exception, psycopg2.Error) as error:
-        print(f"Ошибка при создании пула соединений: {error}")
+    import time
+    
+    max_retries = 5
+    retry_delay = 2
+    
+    for attempt in range(max_retries):
+        try:
+            logger.info(f"Попытка подключения к БД (попытка {attempt + 1}/{max_retries})...")
+            logger.info(f"Параметры подключения: host={DB_CONFIG['host']}, port={DB_CONFIG['port']}, db={DB_CONFIG['database']}, user={DB_CONFIG['user']}")
+            
+            connection_pool = psycopg2.pool.SimpleConnectionPool(
+                1, 20, **DB_CONFIG
+            )
+            if connection_pool:
+                logger.info("Пул соединений с БД успешно создан")
+                return
+        except (Exception, psycopg2.Error) as error:
+            logger.warning(f"Ошибка при создании пула соединений (попытка {attempt + 1}/{max_retries}): {error}")
+            if attempt < max_retries - 1:
+                logger.info(f"Повторная попытка через {retry_delay} секунд...")
+                time.sleep(retry_delay)
+            else:
+                logger.error(f"Не удалось подключиться к БД после {max_retries} попыток")
+                raise
 
 def get_db_connection():
     """Получение соединения из пула"""
@@ -47,5 +66,5 @@ def close_db_pool():
     """Закрытие пула соединений"""
     if connection_pool:
         connection_pool.closeall()
-        print("Пул соединений закрыт")
+        logger.info("Пул соединений закрыт")
 
